@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { dayToColumnLetter, getSheetsClient, SHEET_NAME, SPREADSHEET_ID } from "@/lib/sheets";
 
 function isAuthorized(req: NextRequest) {
-  const requiredPin = process.env.APP_PIN;
-  if (!requiredPin) return true; // Jika APP_PIN tidak diset, akses terbuka
+  const requiredPin = process.env.APP_PIN || "1234";
   const providedPin = req.headers.get("x-app-pin");
   return providedPin === requiredPin;
 }
