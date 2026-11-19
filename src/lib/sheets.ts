@@ -5,10 +5,23 @@ export const SHEET_NAME = "November 2026";
 
 export function getSheetsClient() {
   const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
-  const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  let privateKey = process.env.GOOGLE_PRIVATE_KEY;
+
+  if (privateKey) {
+    // Normalisasi format newline: menangani \\n ganda maupun \n literal dari env Vercel
+    privateKey = privateKey.replace(/\\\\n/g, "\n").replace(/\\n/g, "\n");
+    // Hapus tanda kutip luar jika pengguna memasukkannya langsung di Vercel UI
+    if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+      privateKey = privateKey.slice(1, -1);
+    }
+  }
 
   if (!clientEmail || !privateKey || !SPREADSHEET_ID) {
-    throw new Error("Environment variables Google Sheets belum lengkap.");
+    const missing: string[] = [];
+    if (!clientEmail) missing.push("GOOGLE_CLIENT_EMAIL");
+    if (!privateKey) missing.push("GOOGLE_PRIVATE_KEY");
+    if (!SPREADSHEET_ID) missing.push("SPREADSHEET_ID");
+    throw new Error(`Environment variables belum lengkap di Vercel: ${missing.join(", ")}`);
   }
 
   const auth = new google.auth.JWT({

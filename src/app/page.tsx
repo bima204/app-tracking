@@ -95,7 +95,10 @@ export default function MobileTrackerPage() {
         return;
       }
 
-      if (!res.ok) throw new Error("Gagal memuat data dari Google Sheets");
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Gagal memuat data dari Google Sheets");
+      }
 
       const data = await res.json();
       setActivities(data.activities || []);

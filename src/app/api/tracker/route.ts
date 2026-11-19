@@ -62,8 +62,9 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: "Gagal mengambil data dari Google Sheets" }, { status: 500 });
+    console.error("Tracker API GET Error:", error);
+    const msg = error instanceof Error ? error.message : "Gagal mengambil data dari Google Sheets";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
