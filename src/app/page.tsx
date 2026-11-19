@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Plus,
   X,
+  Heart,
 } from "lucide-react";
 
 interface Activity {
@@ -33,11 +34,18 @@ interface MonthlySummary {
   dailyAvgPct: number;
 }
 
+interface UserProfile {
+  name: string;
+  theme: "teal" | "rose";
+  subtitle: string;
+}
+
 const DAY_NAMES = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 
 export default function MobileTrackerPage() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [summary, setSummary] = useState<MonthlySummary | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [selectedDay, setSelectedDay] = useState<number>(1);
   const [loading, setLoading] = useState(true);
   const [syncingRow, setSyncingRow] = useState<number | null>(null);
@@ -58,13 +66,12 @@ export default function MobileTrackerPage() {
 
   useEffect(() => {
     const now = new Date();
-    // Default hari ini jika di November 2026
     if (now.getFullYear() === 2026 && now.getMonth() === 10) {
       setSelectedDay(now.getDate());
     }
   }, []);
 
-  // Otomatis scroll pemilih tanggal ke tanggal yang terpilih
+  // Otomatis scroll pemilih tanggal ke tanggal terpilih
   useEffect(() => {
     if (dateListRef.current) {
       const selectedBtn = dateListRef.current.querySelector(
@@ -85,8 +92,14 @@ export default function MobileTrackerPage() {
     setError(null);
     try {
       const savedPin = currentPin ?? localStorage.getItem("tracker_pin") ?? "";
+      if (!savedPin) {
+        setNeedsPin(true);
+        setLoading(false);
+        return;
+      }
+
       const res = await fetch("/api/tracker", {
-        headers: savedPin ? { "x-app-pin": savedPin } : {},
+        headers: { "x-app-pin": savedPin },
       });
 
       if (res.status === 401) {
@@ -103,6 +116,9 @@ export default function MobileTrackerPage() {
       const data = await res.json();
       setActivities(data.activities || []);
       setSummary(data.monthlySummary || null);
+      if (data.user) {
+        setUserProfile(data.user);
+      }
       setNeedsPin(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan koneksi");
@@ -177,7 +193,7 @@ export default function MobileTrackerPage() {
         body: JSON.stringify({
           time: newTime.trim(),
           name: newName.trim(),
-          category: newCategory.trim() || "Magang",
+          category: newCategory.trim() || "Kegiatan",
         }),
       });
 
@@ -203,16 +219,21 @@ export default function MobileTrackerPage() {
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!pin.trim()) return;
-    localStorage.setItem("tracker_pin", pin);
-    fetchData(pin);
+    localStorage.setItem("tracker_pin", pin.trim());
+    fetchData(pin.trim());
   };
 
   const handleLogout = () => {
     localStorage.removeItem("tracker_pin");
     setActivities([]);
     setSummary(null);
+    setUserProfile(null);
+    setPin("");
     setNeedsPin(true);
   };
+
+  // Tema warna dinamis sesuai user (Abun: teal/emerald, Flowee: rose/pink)
+  const isRose = userProfile?.theme === "rose";
 
   // Kategori unik untuk filter
   const categories = [
@@ -232,18 +253,60 @@ export default function MobileTrackerPage() {
   // Layar Login PIN Mobile-First
   if (needsPin) {
     return (
-      <main className="min-h-screen w-full flex items-center justify-center p-4 bg-gradient-to-b from-teal-900 via-teal-950 to-slate-950 text-white">
+      <main className="min-h-screen w-full flex items-center justify-center p-4 bg-gradient-to-b from-slate-900 via-slate-950 to-black text-white">
         <div className="w-full max-w-sm bg-white/10 backdrop-blur-xl border border-white/15 rounded-3xl p-6 shadow-2xl space-y-6">
           <div className="text-center space-y-2">
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-teal-500/20 border border-teal-400/30 flex items-center justify-center text-teal-300 shadow-inner">
-              <Lock className="w-7 h-7" />
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-tr from-teal-500/20 to-rose-500/20 border border-white/20 flex items-center justify-center text-white shadow-inner">
+              <Lock className="w-7 h-7 text-white" />
             </div>
             <h1 className="text-xl font-bold text-white tracking-tight">
-              Akses Pelacak Magang
+              Pilih / Buka Akun
             </h1>
-            <p className="text-xs text-teal-200/80">
-              Masukkan PIN aplikasi Anda untuk membuka jadwal dan menyinkronkan dengan Google Sheet.
+            <p className="text-xs text-slate-300">
+              Masukkan PIN Anda: <strong>0623</strong> (Abun) atau <strong>0224</strong> (Flowee).
             </p>
+          </div>
+
+          {/* Tombol Cepat Pilihan Profil */}
+          <div className="grid grid-cols-2 gap-2.5 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                setPin("0623");
+                localStorage.setItem("tracker_pin", "0623");
+                fetchData("0623");
+              }}
+              className="p-3 rounded-2xl bg-teal-950/70 hover:bg-teal-900/90 border border-teal-500/30 text-teal-200 flex flex-col items-center gap-1 transition active:scale-95"
+            >
+              <div className="w-7 h-7 rounded-full bg-teal-500/30 flex items-center justify-center text-teal-300 text-xs font-bold">
+                A
+              </div>
+              <span className="text-sm font-bold text-teal-100">Abun</span>
+              <span className="text-[10px] text-teal-400/80">PIN: 0623</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setPin("0224");
+                localStorage.setItem("tracker_pin", "0224");
+                fetchData("0224");
+              }}
+              className="p-3 rounded-2xl bg-rose-950/70 hover:bg-rose-900/90 border border-rose-500/30 text-rose-200 flex flex-col items-center gap-1 transition active:scale-95"
+            >
+              <div className="w-7 h-7 rounded-full bg-rose-500/30 flex items-center justify-center text-rose-300 text-xs font-bold">
+                🌸
+              </div>
+              <span className="text-sm font-bold text-rose-100">Flowee</span>
+              <span className="text-[10px] text-rose-400/80">PIN: 0224</span>
+            </button>
+          </div>
+
+          <div className="relative flex items-center justify-center my-2">
+            <div className="border-t border-white/10 w-full" />
+            <span className="bg-slate-900/80 px-2 text-[10px] text-slate-400 uppercase tracking-widest absolute">
+              atau ketik manual
+            </span>
           </div>
 
           <form onSubmit={handlePinSubmit} className="space-y-4">
@@ -254,13 +317,12 @@ export default function MobileTrackerPage() {
                 value={pin}
                 onChange={(e) => setPin(e.target.value)}
                 placeholder="Ketik PIN..."
-                autoFocus
                 className="w-full px-4 py-3.5 pr-12 rounded-2xl bg-white/10 border border-white/20 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:bg-white/15 transition text-center text-lg tracking-widest font-semibold"
               />
               <button
                 type="button"
                 onClick={() => setShowPin(!showPin)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1.5 text-teal-200/70 hover:text-white transition"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1.5 text-slate-300 hover:text-white transition"
                 aria-label="Lihat PIN"
               >
                 {showPin ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -269,14 +331,20 @@ export default function MobileTrackerPage() {
 
             <button
               type="submit"
-              className="w-full py-3.5 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 font-bold rounded-2xl shadow-lg shadow-teal-500/25 active:scale-[0.98] transition flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-gradient-to-r from-teal-500 via-emerald-500 to-rose-500 hover:opacity-95 text-slate-950 font-bold rounded-2xl shadow-lg active:scale-[0.98] transition flex items-center justify-center gap-2"
             >
               <span>Buka Jadwal</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           </form>
 
-          <p className="text-[11px] text-center text-teal-300/50">
+          {error && (
+            <p className="text-xs text-rose-400 text-center font-medium bg-rose-950/50 p-2.5 rounded-xl border border-rose-800/50">
+              {error}
+            </p>
+          )}
+
+          <p className="text-[11px] text-center text-slate-400">
             Terhubung langsung ke Google Sheets API
           </p>
         </div>
@@ -285,25 +353,30 @@ export default function MobileTrackerPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 flex justify-center selection:bg-teal-200">
+    <div className={`min-h-screen flex justify-center ${isRose ? "bg-rose-100/50 selection:bg-rose-200" : "bg-slate-100 selection:bg-teal-200"}`}>
       {/* Container utama gaya Smartphone Mobile View */}
       <main className="w-full max-w-md bg-white min-h-screen shadow-2xl relative flex flex-col pb-24">
         
         {/* Sticky Mobile App Bar & Header */}
-        <header className="sticky top-0 z-30 bg-teal-800 text-white shadow-md pt-safe">
+        <header className={`sticky top-0 z-30 text-white shadow-md pt-safe transition-colors duration-300 ${isRose ? "bg-rose-800" : "bg-teal-800"}`}>
           {/* Top Bar */}
           <div className="px-5 pt-4 pb-3 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-teal-700/80 border border-teal-600 flex items-center justify-center text-teal-300">
-                <Sparkles className="w-4 h-4" />
+              <div className={`w-8 h-8 rounded-xl border flex items-center justify-center ${isRose ? "bg-rose-700/80 border-rose-600 text-rose-200" : "bg-teal-700/80 border-teal-600 text-teal-300"}`}>
+                {isRose ? <Heart className="w-4 h-4 fill-rose-300" /> : <Sparkles className="w-4 h-4" />}
               </div>
               <div>
-                <span className="text-[10px] font-semibold tracking-wider uppercase text-teal-200 block">
-                  Program Magang LPK
+                <span className={`text-[10px] font-semibold tracking-wider uppercase block ${isRose ? "text-rose-200" : "text-teal-200"}`}>
+                  {userProfile?.subtitle || "Pelacak Produktivitas"}
                 </span>
-                <h1 className="text-base font-bold leading-tight">
-                  November 2026
-                </h1>
+                <div className="flex items-center gap-1.5">
+                  <h1 className="text-base font-bold leading-tight">
+                    November 2026
+                  </h1>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isRose ? "bg-rose-600 text-rose-100" : "bg-teal-600 text-teal-100"}`}>
+                    {userProfile?.name || "User"}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -311,7 +384,7 @@ export default function MobileTrackerPage() {
               <button
                 onClick={() => fetchData()}
                 disabled={loading}
-                className="p-2 rounded-xl bg-teal-700/60 hover:bg-teal-700 text-teal-100 active:scale-90 transition"
+                className={`p-2 rounded-xl text-white active:scale-90 transition ${isRose ? "bg-rose-700/60 hover:bg-rose-700" : "bg-teal-700/60 hover:bg-teal-700"}`}
                 aria-label="Muat ulang data"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
@@ -319,8 +392,8 @@ export default function MobileTrackerPage() {
 
               <button
                 onClick={handleLogout}
-                className="p-2 rounded-xl bg-teal-700/60 hover:bg-red-600/80 text-teal-100 hover:text-white active:scale-90 transition"
-                title="Ganti / Kunci PIN"
+                className={`p-2 rounded-xl hover:bg-red-600 text-white active:scale-90 transition ${isRose ? "bg-rose-700/60" : "bg-teal-700/60"}`}
+                title="Ganti Profil / Kunci PIN"
                 aria-label="Keluar"
               >
                 <LogOut className="w-4 h-4" />
@@ -330,10 +403,10 @@ export default function MobileTrackerPage() {
 
           {/* Kartu Hero Progres Hari Ini */}
           <div className="px-5 pb-4">
-            <div className="bg-gradient-to-br from-teal-900/90 to-teal-950/90 p-4 rounded-2xl border border-teal-700/50 shadow-inner">
+            <div className={`p-4 rounded-2xl border shadow-inner ${isRose ? "bg-gradient-to-br from-rose-900/90 to-rose-950/90 border-rose-700/50" : "bg-gradient-to-br from-teal-900/90 to-teal-950/90 border-teal-700/50"}`}>
               <div className="flex justify-between items-start mb-2">
                 <div>
-                  <div className="flex items-center gap-1.5 text-teal-300 text-xs font-medium">
+                  <div className={`flex items-center gap-1.5 text-xs font-medium ${isRose ? "text-rose-300" : "text-teal-300"}`}>
                     <TrendingUp className="w-3.5 h-3.5" />
                     <span>Target Tanggal {selectedDay} Nov</span>
                   </div>
@@ -341,32 +414,32 @@ export default function MobileTrackerPage() {
                     <span className="text-2xl font-extrabold text-white">
                       {completedToday}
                     </span>
-                    <span className="text-xs text-teal-200/70 font-medium">
+                    <span className={`text-xs font-medium ${isRose ? "text-rose-200/70" : "text-teal-200/70"}`}>
                       / {activities.length} tugas selesai
                     </span>
                   </div>
                 </div>
 
                 <div className="text-right">
-                  <span className="text-2xl font-black text-emerald-400">
+                  <span className={`text-2xl font-black ${isRose ? "text-rose-300" : "text-emerald-400"}`}>
                     {dailyPct}%
                   </span>
                 </div>
               </div>
 
-              {/* Progress Bar Animasi */}
-              <div className="w-full bg-teal-950 h-2.5 rounded-full overflow-hidden p-0.5 border border-teal-800">
+              {/* Progress Bar */}
+              <div className={`w-full h-2.5 rounded-full overflow-hidden p-0.5 border ${isRose ? "bg-rose-950 border-rose-800" : "bg-teal-950 border-teal-800"}`}>
                 <div
-                  className="bg-gradient-to-r from-teal-400 to-emerald-400 h-full rounded-full transition-all duration-500 ease-out"
+                  className={`h-full rounded-full transition-all duration-500 ease-out ${isRose ? "bg-gradient-to-r from-rose-400 to-pink-400" : "bg-gradient-to-r from-teal-400 to-emerald-400"}`}
                   style={{ width: `${dailyPct}%` }}
                 />
               </div>
 
               {/* Ringkasan Bulanan */}
               {summary && (
-                <div className="mt-3 pt-2.5 border-t border-teal-800/80 flex items-center justify-between text-[11px] text-teal-200/80">
+                <div className={`mt-3 pt-2.5 border-t flex items-center justify-between text-[11px] ${isRose ? "border-rose-800/80 text-rose-200/80" : "border-teal-800/80 text-teal-200/80"}`}>
                   <span>Akumulasi Bulan:</span>
-                  <span className="font-semibold text-teal-100">
+                  <span className={`font-semibold ${isRose ? "text-rose-100" : "text-teal-100"}`}>
                     {summary.totalDone}/{summary.totalTarget} ({Math.round(summary.consistencyPct * 100)}%)
                   </span>
                 </div>
@@ -375,13 +448,13 @@ export default function MobileTrackerPage() {
           </div>
 
           {/* Date Picker Horizontal Carousel */}
-          <div className="bg-teal-850 px-4 py-2.5 border-t border-teal-700/60">
+          <div className={`px-4 py-2.5 border-t ${isRose ? "bg-rose-850 bg-rose-900 border-rose-700/60" : "bg-teal-850 border-teal-700/60"}`}>
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-teal-200">
-                <Calendar className="w-3 h-3 text-teal-300" />
+              <div className={`flex items-center gap-1.5 text-[11px] font-bold tracking-wider ${isRose ? "text-rose-200" : "text-teal-200"}`}>
+                <Calendar className={`w-3 h-3 ${isRose ? "text-rose-300" : "text-teal-300"}`} />
                 <span>PILIH TANGGAL (1 - 30)</span>
               </div>
-              <span className="text-[10px] text-teal-300/80 font-medium">
+              <span className={`text-[10px] font-medium ${isRose ? "text-rose-300/80" : "text-teal-300/80"}`}>
                 Tgl Terpilih: {selectedDay} Nov
               </span>
             </div>
@@ -402,17 +475,21 @@ export default function MobileTrackerPage() {
                     onClick={() => setSelectedDay(day)}
                     className={`flex-shrink-0 w-11 h-14 rounded-2xl flex flex-col items-center justify-center transition-all snap-center select-none active:scale-95 ${
                       isSelected
-                        ? "bg-white text-teal-900 font-bold shadow-md ring-2 ring-emerald-400 scale-105"
+                        ? isRose
+                          ? "bg-white text-rose-900 font-bold shadow-md ring-2 ring-rose-400 scale-105"
+                          : "bg-white text-teal-900 font-bold shadow-md ring-2 ring-emerald-400 scale-105"
+                        : isRose
+                        ? "bg-rose-800/60 hover:bg-rose-700/60 text-white border border-rose-700/60"
                         : "bg-teal-800/60 hover:bg-teal-700/60 text-white border border-teal-700/60"
                     }`}
                   >
                     <span
                       className={`text-[9px] uppercase font-semibold ${
                         isSelected
-                          ? "text-teal-700"
+                          ? isRose ? "text-rose-700" : "text-teal-700"
                           : isSunday
                           ? "text-rose-300"
-                          : "text-teal-300/80"
+                          : isRose ? "text-rose-300/80" : "text-teal-300/80"
                       }`}
                     >
                       {dayName}
@@ -432,7 +509,7 @@ export default function MobileTrackerPage() {
           <div className="mx-4 mt-3 p-3.5 bg-rose-50 border border-rose-300 text-rose-800 text-xs rounded-2xl shadow-sm flex flex-col gap-2">
             <div className="flex items-start justify-between">
               <div className="font-semibold flex items-center gap-1.5 text-rose-700">
-                <span>⚠️ Detail Error Koneksi:</span>
+                <span>⚠️ Pesan:</span>
               </div>
               <button
                 onClick={() => setError(null)}
@@ -455,7 +532,7 @@ export default function MobileTrackerPage() {
                 onClick={handleLogout}
                 className="px-3 py-1 bg-rose-100 hover:bg-rose-200 text-rose-800 rounded-lg font-medium text-[11px] transition"
               >
-                Reset PIN
+                Ganti Akun
               </button>
             </div>
           </div>
@@ -473,7 +550,9 @@ export default function MobileTrackerPage() {
                     onClick={() => setFilterCategory(cat)}
                     className={`text-[11px] px-3 py-1.5 rounded-full font-medium whitespace-nowrap transition active:scale-95 ${
                       isActive
-                        ? "bg-teal-700 text-white shadow-sm"
+                        ? isRose
+                          ? "bg-rose-600 text-white shadow-sm"
+                          : "bg-teal-700 text-white shadow-sm"
                         : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                   >
@@ -496,14 +575,14 @@ export default function MobileTrackerPage() {
 
           {loading && activities.length === 0 ? (
             <div className="py-16 text-center space-y-3">
-              <div className="w-8 h-8 mx-auto border-3 border-teal-600 border-t-transparent rounded-full animate-spin" />
+              <div className={`w-8 h-8 mx-auto border-3 border-t-transparent rounded-full animate-spin ${isRose ? "border-rose-600" : "border-teal-600"}`} />
               <p className="text-xs text-slate-400 font-medium">
-                Menyinkronkan data dari Google Sheets...
+                Menyinkronkan data Google Sheets...
               </p>
             </div>
           ) : filteredActivities.length === 0 ? (
             <div className="py-12 text-center text-slate-400 text-xs bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-              Belum ada kegiatan. Tekan tombol <span className="font-bold text-teal-700">+</span> di bawah untuk menambahkan.
+              Belum ada kegiatan. Tekan tombol <span className={`font-bold ${isRose ? "text-rose-600" : "text-teal-700"}`}>+</span> di bawah untuk menambahkan.
             </div>
           ) : (
             filteredActivities.map((activity) => {
@@ -518,15 +597,19 @@ export default function MobileTrackerPage() {
                   tabIndex={0}
                   className={`w-full text-left p-3.5 rounded-2xl border transition-all duration-200 flex items-center gap-3.5 select-none active:scale-[0.98] cursor-pointer ${
                     isDone
-                      ? "bg-teal-50/70 border-teal-200 shadow-xs"
+                      ? isRose
+                        ? "bg-rose-50/70 border-rose-200 shadow-xs"
+                        : "bg-teal-50/70 border-teal-200 shadow-xs"
                       : "bg-white border-slate-200 shadow-xs hover:border-slate-300"
                   }`}
                 >
-                  {/* Tombol Checkbox Touch Target Besar */}
+                  {/* Checkbox */}
                   <div
                     className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform ${
                       isDone
-                        ? "bg-teal-600 text-white shadow-sm scale-105"
+                        ? isRose
+                          ? "bg-rose-600 text-white shadow-sm scale-105"
+                          : "bg-teal-600 text-white shadow-sm scale-105"
                         : "border-2 border-slate-300 bg-slate-50 text-transparent"
                     }`}
                   >
@@ -541,7 +624,11 @@ export default function MobileTrackerPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       {activity.time && (
-                        <span className="flex items-center gap-1 text-[11px] font-semibold text-teal-700 bg-teal-100/60 px-2 py-0.5 rounded-md">
+                        <span className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md ${
+                          isRose
+                            ? "text-rose-700 bg-rose-100/70"
+                            : "text-teal-700 bg-teal-100/60"
+                        }`}>
                           <Clock className="w-3 h-3" />
                           {activity.time}
                         </span>
@@ -565,10 +652,10 @@ export default function MobileTrackerPage() {
                     </p>
                   </div>
 
-                  {/* Indikator Animasi Sync */}
+                  {/* Syncing indicator */}
                   {isSyncing ? (
                     <div className="flex-shrink-0">
-                      <span className="w-2.5 h-2.5 rounded-full bg-teal-500 animate-ping inline-block" />
+                      <span className={`w-2.5 h-2.5 rounded-full animate-ping inline-block ${isRose ? "bg-rose-500" : "bg-teal-500"}`} />
                     </div>
                   ) : null}
                 </div>
@@ -581,7 +668,11 @@ export default function MobileTrackerPage() {
         <div className="fixed bottom-6 max-w-md w-full px-5 pointer-events-none flex justify-end z-20">
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="pointer-events-auto h-14 px-5 rounded-full bg-gradient-to-r from-teal-700 to-emerald-600 hover:from-teal-600 hover:to-emerald-500 text-white font-bold shadow-xl shadow-teal-900/30 flex items-center gap-2 active:scale-95 transition"
+            className={`pointer-events-auto h-14 px-5 rounded-full font-bold shadow-xl flex items-center gap-2 active:scale-95 transition text-white ${
+              isRose
+                ? "bg-gradient-to-r from-rose-600 to-pink-500 shadow-rose-900/30"
+                : "bg-gradient-to-r from-teal-700 to-emerald-600 shadow-teal-900/30"
+            }`}
           >
             <Plus className="w-5 h-5 stroke-[2.5]" />
             <span className="text-sm">Tambah Jadwal</span>
@@ -596,11 +687,11 @@ export default function MobileTrackerPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                <div className="flex items-center gap-2 text-teal-800 font-bold text-base">
-                  <div className="p-1.5 rounded-lg bg-teal-50 text-teal-700">
+                <div className={`flex items-center gap-2 font-bold text-base ${isRose ? "text-rose-800" : "text-teal-800"}`}>
+                  <div className={`p-1.5 rounded-lg ${isRose ? "bg-rose-50 text-rose-700" : "bg-teal-50 text-teal-700"}`}>
                     <Plus className="w-4 h-4" />
                   </div>
-                  <span>Tambah Kegiatan Magang</span>
+                  <span>Tambah Kegiatan {userProfile?.name}</span>
                 </div>
                 <button
                   onClick={() => setIsAddModalOpen(false)}
@@ -620,7 +711,7 @@ export default function MobileTrackerPage() {
                     required
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    placeholder="Contoh: Morning Briefing, Standup Magang..."
+                    placeholder="Contoh: Diskusi Kelompok, Olahraga Sore..."
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-600 text-sm"
                   />
                 </div>
@@ -643,18 +734,13 @@ export default function MobileTrackerPage() {
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
                       Kategori
                     </label>
-                    <select
+                    <input
+                      type="text"
                       value={newCategory}
                       onChange={(e) => setNewCategory(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-600 text-sm bg-white"
-                    >
-                      <option value="Tugas Harian">Tugas Harian</option>
-                      <option value="Briefing">Briefing</option>
-                      <option value="Praktik LPK">Praktik LPK</option>
-                      <option value="Evaluasi">Evaluasi</option>
-                      <option value="Laporan">Laporan</option>
-                      <option value="Magang">Lainnya</option>
-                    </select>
+                      placeholder="KKN, Ibadah, Belajar..."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-600 text-sm"
+                    />
                   </div>
                 </div>
 
@@ -669,7 +755,9 @@ export default function MobileTrackerPage() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-2/3 py-3 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-semibold text-sm shadow-md active:scale-95 transition flex items-center justify-center gap-2"
+                    className={`w-2/3 py-3 rounded-xl text-white font-semibold text-sm shadow-md active:scale-95 transition flex items-center justify-center gap-2 ${
+                      isRose ? "bg-rose-600 hover:bg-rose-700" : "bg-teal-700 hover:bg-teal-800"
+                    }`}
                   >
                     {isSubmitting ? (
                       <>

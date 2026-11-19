@@ -33,7 +33,35 @@ Oswf4aWKq0xaDvk+4vsJAQ==
 -----END PRIVATE KEY-----`;
 
 export const SPREADSHEET_ID = process.env.SPREADSHEET_ID || FALLBACK_SPREADSHEET_ID;
-export const SHEET_NAME = "November 2026";
+
+export interface UserConfig {
+  name: string;
+  pin: string;
+  sheetName: string;
+  theme: "teal" | "rose";
+  subtitle: string;
+}
+
+export const USERS: Record<string, UserConfig> = {
+  "0623": {
+    name: "Abun",
+    pin: "0623",
+    sheetName: "November 2026",
+    theme: "teal",
+    subtitle: "Program Magang LPK • Rutinitas & Belajar",
+  },
+  "0224": {
+    name: "Flowee",
+    pin: "0224",
+    sheetName: "Flowee",
+    theme: "rose",
+    subtitle: "Kegiatan KKN & Produktivitas Harian",
+  },
+};
+
+export function getUserByPin(pin: string): UserConfig | null {
+  return USERS[pin] || null;
+}
 
 export function getSheetsClient() {
   const clientEmail = process.env.GOOGLE_CLIENT_EMAIL || FALLBACK_CLIENT_EMAIL;
