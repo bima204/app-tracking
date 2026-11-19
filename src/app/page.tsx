@@ -429,14 +429,35 @@ export default function MobileTrackerPage() {
 
         {/* Notifikasi Error */}
         {error && (
-          <div className="mx-4 mt-3 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-2xl flex items-center justify-between shadow-sm">
-            <span>{error}</span>
-            <button
-              onClick={() => setError(null)}
-              className="text-rose-500 font-bold ml-2 text-xs"
-            >
-              ✕
-            </button>
+          <div className="mx-4 mt-3 p-3.5 bg-rose-50 border border-rose-300 text-rose-800 text-xs rounded-2xl shadow-sm flex flex-col gap-2">
+            <div className="flex items-start justify-between">
+              <div className="font-semibold flex items-center gap-1.5 text-rose-700">
+                <span>⚠️ Detail Error Koneksi:</span>
+              </div>
+              <button
+                onClick={() => setError(null)}
+                className="text-rose-500 hover:text-rose-700 font-bold ml-2 text-sm px-1"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="bg-white/80 p-2 rounded-xl border border-rose-200 font-mono text-[11px] break-all select-all text-rose-900 leading-relaxed">
+              {error}
+            </div>
+            <div className="flex gap-2 mt-0.5">
+              <button
+                onClick={() => fetchData()}
+                className="px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-medium text-[11px] transition shadow-xs"
+              >
+                Coba Lagi
+              </button>
+              <button
+                onClick={handleLogout}
+                className="px-3 py-1 bg-rose-100 hover:bg-rose-200 text-rose-800 rounded-lg font-medium text-[11px] transition"
+              >
+                Reset PIN
+              </button>
+            </div>
           </div>
         )}
 
