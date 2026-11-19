@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Check,
   RefreshCw,
@@ -17,6 +19,7 @@ import {
   Plus,
   X,
   Heart,
+  Users,
 } from "lucide-react";
 
 interface Activity {
@@ -42,7 +45,8 @@ interface UserProfile {
 
 const DAY_NAMES = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 
-export default function MobileTrackerPage() {
+export default function MobileTrackerPage({ forcedUser }: { forcedUser?: "abun" | "flowee" }) {
+  const router = useRouter();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [summary, setSummary] = useState<MonthlySummary | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -59,10 +63,18 @@ export default function MobileTrackerPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newTime, setNewTime] = useState("");
   const [newName, setNewName] = useState("");
-  const [newCategory, setNewCategory] = useState("Tugas Harian");
+  const [newCategory, setNewCategory] = useState("Kegiatan Harian");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const dateListRef = useRef<HTMLDivElement>(null);
+
+  // Storage key spesifik per user agar sesi tidak bertabrakan di satu browser
+  const storageKey = forcedUser
+    ? `tracker_pin_${forcedUser}`
+    : "tracker_pin";
+
+  // Default PIN untuk halaman khusus jika belum diubah
+  const defaultPin = forcedUser === "abun" ? "0623" : forcedUser === "flowee" ? "0224" : "";
 
   useEffect(() => {
     const now = new Date();
@@ -91,7 +103,12 @@ export default function MobileTrackerPage() {
     setLoading(true);
     setError(null);
     try {
-      const savedPin = currentPin ?? localStorage.getItem("tracker_pin") ?? "";
+      const savedPin =
+        currentPin ??
+        localStorage.getItem(storageKey) ??
+        defaultPin ??
+        "";
+
       if (!savedPin) {
         setNeedsPin(true);
         setLoading(false);
@@ -125,7 +142,7 @@ export default function MobileTrackerPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [storageKey, defaultPin]);
 
   useEffect(() => {
     fetchData();
@@ -133,7 +150,7 @@ export default function MobileTrackerPage() {
 
   const handleToggle = async (activity: Activity) => {
     const newStatus = !activity.days[selectedDay];
-    const savedPin = localStorage.getItem("tracker_pin") ?? "";
+    const savedPin = localStorage.getItem(storageKey) || defaultPin;
 
     // Optimistic UI update
     setActivities((prev) =>
@@ -181,7 +198,7 @@ export default function MobileTrackerPage() {
 
     setIsSubmitting(true);
     setError(null);
-    const savedPin = localStorage.getItem("tracker_pin") ?? "";
+    const savedPin = localStorage.getItem(storageKey) || defaultPin;
 
     try {
       const res = await fetch("/api/tracker", {
@@ -219,21 +236,17 @@ export default function MobileTrackerPage() {
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!pin.trim()) return;
-    localStorage.setItem("tracker_pin", pin.trim());
+    localStorage.setItem(storageKey, pin.trim());
     fetchData(pin.trim());
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("tracker_pin");
-    setActivities([]);
-    setSummary(null);
-    setUserProfile(null);
-    setPin("");
-    setNeedsPin(true);
+    localStorage.removeItem(storageKey);
+    router.push("/login");
   };
 
   // Tema warna dinamis sesuai user (Abun: teal/emerald, Flowee: rose/pink)
-  const isRose = userProfile?.theme === "rose";
+  const isRose = forcedUser === "flowee" || userProfile?.theme === "rose";
 
   // Kategori unik untuk filter
   const categories = [
@@ -260,53 +273,13 @@ export default function MobileTrackerPage() {
               <Lock className="w-7 h-7 text-white" />
             </div>
             <h1 className="text-xl font-bold text-white tracking-tight">
-              Pilih / Buka Akun
+              {forcedUser ? `Buka Tracker ${forcedUser === "abun" ? "Abun" : "Flowee"}` : "Pilih / Buka Akun"}
             </h1>
             <p className="text-xs text-slate-300">
-              Masukkan PIN Anda: <strong>0623</strong> (Abun) atau <strong>0224</strong> (Flowee).
+              {forcedUser
+                ? `Masukkan PIN untuk membuka profil ${forcedUser === "abun" ? "Abun (0623)" : "Flowee (0224)"}`
+                : "Masukkan PIN Anda: 0623 (Abun) atau 0224 (Flowee)."}
             </p>
-          </div>
-
-          {/* Tombol Cepat Pilihan Profil */}
-          <div className="grid grid-cols-2 gap-2.5 pt-1">
-            <button
-              type="button"
-              onClick={() => {
-                setPin("0623");
-                localStorage.setItem("tracker_pin", "0623");
-                fetchData("0623");
-              }}
-              className="p-3 rounded-2xl bg-teal-950/70 hover:bg-teal-900/90 border border-teal-500/30 text-teal-200 flex flex-col items-center gap-1 transition active:scale-95"
-            >
-              <div className="w-7 h-7 rounded-full bg-teal-500/30 flex items-center justify-center text-teal-300 text-xs font-bold">
-                A
-              </div>
-              <span className="text-sm font-bold text-teal-100">Abun</span>
-              <span className="text-[10px] text-teal-400/80">PIN: 0623</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setPin("0224");
-                localStorage.setItem("tracker_pin", "0224");
-                fetchData("0224");
-              }}
-              className="p-3 rounded-2xl bg-rose-950/70 hover:bg-rose-900/90 border border-rose-500/30 text-rose-200 flex flex-col items-center gap-1 transition active:scale-95"
-            >
-              <div className="w-7 h-7 rounded-full bg-rose-500/30 flex items-center justify-center text-rose-300 text-xs font-bold">
-                🌸
-              </div>
-              <span className="text-sm font-bold text-rose-100">Flowee</span>
-              <span className="text-[10px] text-rose-400/80">PIN: 0224</span>
-            </button>
-          </div>
-
-          <div className="relative flex items-center justify-center my-2">
-            <div className="border-t border-white/10 w-full" />
-            <span className="bg-slate-900/80 px-2 text-[10px] text-slate-400 uppercase tracking-widest absolute">
-              atau ketik manual
-            </span>
           </div>
 
           <form onSubmit={handlePinSubmit} className="space-y-4">
@@ -317,6 +290,7 @@ export default function MobileTrackerPage() {
                 value={pin}
                 onChange={(e) => setPin(e.target.value)}
                 placeholder="Ketik PIN..."
+                autoFocus
                 className="w-full px-4 py-3.5 pr-12 rounded-2xl bg-white/10 border border-white/20 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:bg-white/15 transition text-center text-lg tracking-widest font-semibold"
               />
               <button
@@ -338,15 +312,14 @@ export default function MobileTrackerPage() {
             </button>
           </form>
 
-          {error && (
-            <p className="text-xs text-rose-400 text-center font-medium bg-rose-950/50 p-2.5 rounded-xl border border-rose-800/50">
-              {error}
-            </p>
-          )}
-
-          <p className="text-[11px] text-center text-slate-400">
-            Terhubung langsung ke Google Sheets API
-          </p>
+          <div className="text-center pt-2 border-t border-white/10">
+            <Link
+              href="/login"
+              className="text-xs text-slate-300 hover:text-white underline"
+            >
+              &larr; Kembali ke Pilihan Halaman Login
+            </Link>
+          </div>
         </div>
       </main>
     );
@@ -367,14 +340,14 @@ export default function MobileTrackerPage() {
               </div>
               <div>
                 <span className={`text-[10px] font-semibold tracking-wider uppercase block ${isRose ? "text-rose-200" : "text-teal-200"}`}>
-                  {userProfile?.subtitle || "Pelacak Produktivitas"}
+                  {userProfile?.subtitle || (isRose ? "Kegiatan KKN & Produktivitas" : "Program Magang LPK")}
                 </span>
                 <div className="flex items-center gap-1.5">
                   <h1 className="text-base font-bold leading-tight">
                     November 2026
                   </h1>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isRose ? "bg-rose-600 text-rose-100" : "bg-teal-600 text-teal-100"}`}>
-                    {userProfile?.name || "User"}
+                    {userProfile?.name || (isRose ? "Flowee" : "Abun")}
                   </span>
                 </div>
               </div>
@@ -390,10 +363,18 @@ export default function MobileTrackerPage() {
                 <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
               </button>
 
+              <Link
+                href="/login"
+                className={`p-2 rounded-xl text-white active:scale-90 transition ${isRose ? "bg-rose-700/60 hover:bg-rose-600" : "bg-teal-700/60 hover:bg-teal-600"}`}
+                title="Pindah Profil / Halaman Login"
+              >
+                <Users className="w-4 h-4" />
+              </Link>
+
               <button
                 onClick={handleLogout}
                 className={`p-2 rounded-xl hover:bg-red-600 text-white active:scale-90 transition ${isRose ? "bg-rose-700/60" : "bg-teal-700/60"}`}
-                title="Ganti Profil / Kunci PIN"
+                title="Keluar / Kunci"
                 aria-label="Keluar"
               >
                 <LogOut className="w-4 h-4" />
@@ -448,7 +429,7 @@ export default function MobileTrackerPage() {
           </div>
 
           {/* Date Picker Horizontal Carousel */}
-          <div className={`px-4 py-2.5 border-t ${isRose ? "bg-rose-850 bg-rose-900 border-rose-700/60" : "bg-teal-850 border-teal-700/60"}`}>
+          <div className={`px-4 py-2.5 border-t ${isRose ? "bg-rose-900 border-rose-700/60" : "bg-teal-850 border-teal-700/60"}`}>
             <div className="flex items-center justify-between mb-2">
               <div className={`flex items-center gap-1.5 text-[11px] font-bold tracking-wider ${isRose ? "text-rose-200" : "text-teal-200"}`}>
                 <Calendar className={`w-3 h-3 ${isRose ? "text-rose-300" : "text-teal-300"}`} />
@@ -691,7 +672,7 @@ export default function MobileTrackerPage() {
                   <div className={`p-1.5 rounded-lg ${isRose ? "bg-rose-50 text-rose-700" : "bg-teal-50 text-teal-700"}`}>
                     <Plus className="w-4 h-4" />
                   </div>
-                  <span>Tambah Kegiatan {userProfile?.name}</span>
+                  <span>Tambah Kegiatan {userProfile?.name || (isRose ? "Flowee" : "Abun")}</span>
                 </div>
                 <button
                   onClick={() => setIsAddModalOpen(false)}
